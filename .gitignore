@@ -1,3 +1,11 @@
+node_modules/
+.next/
+out/
+.vercel/
+.env
+.env.local
+.env.*.local
+!.env.example
+*.zip
 .DS_Store
 Thumbs.db
-*.zip
