@@ -1,17 +1,37 @@
 # SkillForge Docs
 
-Transform web knowledge sources into structured, traceable Skills for AI agents.
+Web app para transformar fontes públicas de conhecimento em Skills estruturadas para agentes de IA.
 
-The Chrome extension lives in `extension/`.
+## Stack
 
-## Current focus
+- Next.js 16 App Router
+- React 19
+- Supabase Auth
+- Firecrawl v2 para jobs de crawl
+- Vercel para deploy
 
-1. reliable crawling of large knowledge portals;
-2. rendered-page fallback for JavaScript-heavy websites;
-3. structured extraction with source traceability;
-4. compilation to reusable Skill ZIPs;
-5. future semantic distillation into concepts, procedures, decisions, constraints and troubleshooting.
+## Fluxo
 
-## Install
+Landing → Auth → Dashboard → Nova Skill → Job de crawl → Knowledge distillation → Skill compiler → ZIP
 
-See [`extension/INSTALL.md`](extension/INSTALL.md).
+## Rodar localmente
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Configure:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+FIRECRAWL_API_KEY=
+```
+
+Sem as chaves, a landing e o dashboard carregam normalmente; Auth e crawls reais ficam desativados de forma explícita.
+
+## Legacy
+
+A antiga prova de conceito da extensão Chrome continua preservada em `/extension`, mas o produto principal agora é o web app.
