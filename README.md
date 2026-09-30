@@ -1,54 +1,29 @@
 # SkillForge Docs
 
-Cloudflare-native app para transformar documentação e outras fontes públicas de conhecimento em Skills estruturadas para agentes de IA.
+Aplicação publicada na Vercel para transformar documentação web em Skills estruturadas.
 
 ## Arquitetura atual
 
-- Cloudflare Workers em Python
-- Cloudflare Workflows para crawls assíncronos
-- D1 para usuários, sessões e projetos
-- R2 para ZIPs gerados
-- Static Assets para landing/dashboard
-- GitHub como fonte do código
+- Vercel para hosting
+- Python Function em `api/fetch.py`
+- navegador coordena o crawl em lotes concorrentes
+- estado dos projetos fica no navegador
+- geração do ZIP acontece no cliente
+
+Isso evita jobs longos presos em infraestrutura e mantém o progresso visível.
 
 ## Fluxo
 
-Landing → Auth → Dashboard → Nova Skill → Python Workflow → Crawl → Skill ZIP → R2
+URL → descoberta de links → lotes de 6 páginas → progresso em tempo real → Skill ZIP
 
-## Primeira publicação no Windows
+## Deploy
 
-No PowerShell, dentro do repositório:
+O projeto é Vercel-native. Basta importar o repositório `matteuzdev/SkillForge-Docs` na Vercel ou rodar:
 
-```powershell
-git pull
-powershell -ExecutionPolicy Bypass -File scripts/publish.ps1
+```bash
+vercel --prod
 ```
 
-O script:
-1. autentica sua conta Cloudflare;
-2. cria o D1;
-3. grava o database_id no wrangler.toml;
-4. cria o bucket R2;
-5. aplica schema.sql;
-6. publica o Worker.
+## Observação
 
-Depois do primeiro deploy, faça commit do `database_id` preenchido no `wrangler.toml`.
-
-## Atualizações automáticas
-
-Adicione estes Secrets no GitHub:
-
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
-
-O workflow `.github/workflows/cloudflare.yml` publica alterações do `main`.
-
-## Estado do crawler
-
-A versão 0.5 usa Cloudflare Python Workflows e captura HTML do mesmo domínio, compila `SKILL.md`, knowledge pages, sources e metadata em ZIP e salva no R2.
-
-O limite inicial por job é 250 páginas. Browser Run para portais JS-heavy e particionamento de crawls gigantes entram na próxima etapa.
-
-## Legacy
-
-A prova antiga da extensão Chrome continua em `/extension` apenas como histórico.
+A versão atual não usa Supabase, Cloudflare, D1, R2 ou banco externo.
