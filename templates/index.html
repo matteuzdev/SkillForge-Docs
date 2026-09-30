@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block body %}
+<nav class="nav shell">
+  <a class="brand" href="/"><span class="brandMark">✦</span><span>SkillForge Docs</span></a>
+  <div class="navActions">
+    {% if user %}<a href="/dashboard" class="button small">Dashboard →</a>{% else %}
+    <a href="/auth" class="textLink">Entrar</a><a href="/auth?mode=signup" class="button small">Criar conta →</a>{% endif %}
+  </div>
+</nav>
+<section class="hero shell">
+  <div>
+    <span class="pill">WEB KNOWLEDGE → AI SKILLS</span>
+    <h1>Transforme documentação em <span>inteligência operacional.</span></h1>
+    <p>Capture documentação técnica, academias, help centers, changelogs e bases públicas de conhecimento. O SkillForge organiza tudo e compila Skills reutilizáveis por agentes de IA.</p>
+    <div class="heroActions"><a href="/auth?mode=signup" class="button">Começar agora →</a><a href="#pipeline" class="button ghost">Ver pipeline</a></div>
+    <div class="trustRow"><span>Oracle</span><span>AWS</span><span>Google</span><span>Vercel</span><span>GitHub</span></div>
+  </div>
+  <div class="window">
+    <div class="windowTop"><i></i><i></i><i></i><span>skillforge.local/new</span></div>
+    <div class="windowBody">
+      <small>FONTE DE CONHECIMENTO</small>
+      <div class="urlBox">https://docs.oracle.com/learn/</div>
+      <div class="flow">
+        <div><b>01</b><span>Discover</span><small>sitemap + links</small></div>
+        <div><b>02</b><span>Extract</span><small>HTML + JS fallback</small></div>
+        <div><b>03</b><span>Distill</span><small>Markdown estruturado</small></div>
+        <div class="active"><b>04</b><span>Compile</span><small>Skill ZIP</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="pipeline" class="section shell">
+  <span class="eyebrow">PIPELINE</span><h2>Sem Supabase. Sem extensão. Python do começo ao fim.</h2>
+  <div class="featureGrid">
+    <article><b>01</b><h3>Descoberta</h3><p>Sitemap, links e escopo por domínio ou caminho.</p></article>
+    <article><b>02</b><h3>Captura</h3><p>HTTP rápido com fallback Playwright para páginas JavaScript.</p></article>
+    <article><b>03</b><h3>Estrutura</h3><p>Texto, links, tabelas e conteúdo limpo em Markdown.</p></article>
+    <article><b>04</b><h3>Skill</h3><p>SKILL.md, knowledge index, fontes e ZIP final.</p></article>
+  </div>
+</section>
+<footer class="footer shell"><span>© 2026 SkillForge Docs</span><span>FastAPI · SQLite · Playwright</span></footer>
+{% endblock %}

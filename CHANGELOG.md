@@ -1,20 +1,16 @@
 # Changelog
 
-## 0.3.0
+## 0.4.0
+- produto principal refeito em Python/FastAPI;
+- removida dependência de Supabase no produto principal;
+- auth próprio com sessões e SQLite;
+- crawler Python com sitemap, link discovery, Trafilatura e fallback Playwright;
+- jobs locais em background;
+- compilador de Skill ZIP;
+- Dockerfile para deploy persistente.
 
-- rebuilt the product as a Next.js web app;
-- premium landing page;
-- Supabase-ready email/password authentication;
-- protected-workspace UX and project dashboard;
-- new Skill creation flow;
-- Firecrawl v2 backend job starter;
-- Vercel-ready environment configuration;
-- Chrome extension preserved only as legacy proof of concept.
+## 0.3.0
+- experimento Next.js + Supabase.
 
 ## 0.2.0
-
-- repository-first extension workflow;
-- unlimited page/depth modes;
-- rendered-page fallback;
-- structured Markdown export;
-- source registry.
+- prova de conceito em extensão Chrome.

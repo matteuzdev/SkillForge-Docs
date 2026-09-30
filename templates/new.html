@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="newPage"><div class="newShell">
+<a href="/dashboard" class="backLink">← Projetos</a>
+<div class="newHead"><span class="pill">✦ NOVA SKILL</span><h1>Qual conhecimento você quer capturar?</h1><p>Python descobre as páginas, extrai conteúdo e compila o ZIP.</p></div>
+<form class="newCard" method="post" action="/projects">
+  <label>URL da fonte</label><input name="start_url" type="url" required placeholder="https://docs.oracle.com/learn/">
+  <label>Nome da Skill</label><input name="name" required placeholder="oracle-cloud-expert">
+  <div class="formGrid">
+    <div><label>Máx. páginas</label><input name="max_pages" type="number" min="0" value="100"><small>0 = sem limite</small></div>
+    <div><label>Escopo</label><select name="scope"><option value="host">Mesmo domínio</option><option value="path">Mesmo caminho-base</option></select></div>
+  </div>
+  <div class="infoBox"><b>Crawler Python.</b> Sitemap + descoberta de links + fallback Playwright quando o HTML vier vazio por JavaScript.</div>
+  <button class="button full">Iniciar captura →</button>
+</form>
+</div></main>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Entrar — SkillForge Docs{% endblock %}
+{% block body %}
+<main class="authPage">
+  <a href="/" class="backLink">← Voltar</a>
+  <section class="authCard">
+    <a class="brand" href="/"><span class="brandMark">✦</span><span>SkillForge Docs</span></a>
+    <span class="eyebrow">{{ "CRIAR CONTA" if mode == "signup" else "BEM-VINDO DE VOLTA" }}</span>
+    <h1>{{ "Comece a transformar conhecimento." if mode == "signup" else "Entre no seu workspace." }}</h1>
+    <p>{{ "Sua conta fica no nosso próprio SQLite." if mode == "signup" else "Acesse seus projetos e Skills geradas." }}</p>
+    <form method="post" action="{{ '/signup' if mode == 'signup' else '/login' }}">
+      <label>E-mail</label><input type="email" name="email" required placeholder="voce@empresa.com">
+      <label>Senha</label><input type="password" name="password" minlength="6" required placeholder="••••••••">
+      <button class="button full">{{ "Criar conta" if mode == "signup" else "Entrar" }}</button>
+    </form>
+    {% if error %}<div class="notice">{{ error }}</div>{% endif %}
+    <a class="switchAuth" href="/auth?mode={{ 'login' if mode == 'signup' else 'signup' }}">{{ "Já tem conta? Entrar" if mode == "signup" else "Ainda não tem conta? Criar agora" }}</a>
+  </section>
+</main>
+{% endblock %}

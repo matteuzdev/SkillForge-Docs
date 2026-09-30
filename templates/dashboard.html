@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="dashPage">
+  <aside class="sidebar">
+    <a class="brand" href="/dashboard"><span class="brandMark">✦</span><span>SkillForge</span></a>
+    <nav class="sideNav"><a class="active" href="/dashboard">▦ Projetos</a><a href="/projects/new">＋ Nova Skill</a></nav>
+    <div class="sideBottom"><small>{{ user.email }}</small><form method="post" action="/logout"><button>↪ Sair</button></form></div>
+  </aside>
+  <section class="dashContent">
+    <header class="dashHeader"><div><span class="eyebrow">WORKSPACE</span><h1>Seus projetos</h1><p>Fontes capturadas e Skills compiladas.</p></div><a href="/projects/new" class="button">＋ Nova Skill</a></header>
+    {% if projects %}
+      <div class="projectList">
+      {% for p in projects %}
+        <a class="projectRow" href="/projects/{{p.id}}"><div><strong>{{p.name}}</strong><small>{{p.start_url}}</small></div><span class="status {{p.status}}">{{p.status}}</span><b>{{p.pages}} páginas</b><span>→</span></a>
+      {% endfor %}
+      </div>
+    {% else %}
+      <section class="emptyState"><div class="emptyIcon">✦</div><span class="eyebrow">PRIMEIRO PROJETO</span><h2>Transforme uma fonte em inteligência.</h2><p>Cole a URL de uma documentação, help center, academia, changelog ou base pública de conhecimento.</p><a href="/projects/new" class="button">Criar minha primeira Skill →</a></section>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

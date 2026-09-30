@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="newPage"><div class="newShell">
+<a href="/dashboard" class="backLink">← Projetos</a>
+<section class="projectDetail" id="project" data-id="{{project.id}}">
+  <span class="eyebrow">PROJETO #{{project.id}}</span>
+  <h1>{{project.name}}</h1>
+  <p>{{project.start_url}}</p>
+  <div class="statsGrid">
+    <div><small>Status</small><strong id="status">{{project.status}}</strong></div>
+    <div><small>Páginas</small><strong id="pages">{{project.pages}}</strong></div>
+    <div><small>Palavras</small><strong id="words">{{project.words}}</strong></div>
+  </div>
+  <div id="error" class="notice {% if not project.error %}hidden{% endif %}">{{project.error or ""}}</div>
+  <a id="download" href="/projects/{{project.id}}/download" class="button {% if project.status != 'done' %}hidden{% endif %}">Baixar Skill ZIP</a>
+</section>
+</div></main>
+<script>
+const box=document.getElementById("project"), id=box.dataset.id;
+async function poll(){
+  const r=await fetch("/api/projects/"+id), d=await r.json();
+  document.getElementById("status").textContent=d.status;
+  document.getElementById("pages").textContent=d.pages;
+  document.getElementById("words").textContent=d.words;
+  if(d.error){document.getElementById("error").textContent=d.error;document.getElementById("error").classList.remove("hidden")}
+  if(d.status==="done"){document.getElementById("download").classList.remove("hidden");return}
+  if(d.status!=="error") setTimeout(poll,1500);
+}
+poll();
+</script>
+{% endblock %}

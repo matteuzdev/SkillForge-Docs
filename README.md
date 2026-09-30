@@ -1,37 +1,51 @@
 # SkillForge Docs
 
-Web app para transformar fontes públicas de conhecimento em Skills estruturadas para agentes de IA.
+Transforma fontes públicas de conhecimento em Skills estruturadas para agentes de IA.
 
-## Stack
+## Stack principal
+- Python 3.12
+- FastAPI
+- SQLite
+- autenticação por sessão própria
+- httpx + BeautifulSoup + Trafilatura
+- Playwright como fallback para páginas JavaScript
+- zipfile para compilar Skills
+- Docker para deploy
 
-- Next.js 16 App Router
-- React 19
-- Supabase Auth
-- Firecrawl v2 para jobs de crawl
-- Vercel para deploy
+Não usa Supabase.
 
 ## Fluxo
-
-Landing → Auth → Dashboard → Nova Skill → Job de crawl → Knowledge distillation → Skill compiler → ZIP
+Landing → Auth → Dashboard → Nova Skill → Crawler Python → Markdown estruturado → Skill ZIP
 
 ## Rodar localmente
-
 ```bash
-npm install
-cp .env.example .env.local
-npm run dev
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+playwright install chromium
+uvicorn app.main:app --reload
 ```
 
-Configure:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-FIRECRAWL_API_KEY=
+Linux/macOS:
+```bash
+source .venv/bin/activate
 ```
 
-Sem as chaves, a landing e o dashboard carregam normalmente; Auth e crawls reais ficam desativados de forma explícita.
+Abra: http://127.0.0.1:8000
+
+## Configuração
+Copie `.env.example` e configure uma `SECRET_KEY` forte no ambiente.
+
+## Deploy
+O projeto está pronto para container Docker. Railway, Render, Fly.io ou VPS são opções naturais para manter jobs de crawler executando fora do ciclo curto de funções serverless.
+
+## Crawler
+- tenta sitemap primeiro;
+- segue links do mesmo escopo;
+- extrai HTML via httpx;
+- usa Playwright se a página vier pobre por JavaScript;
+- `max_pages = 0` significa sem limite explícito;
+- registra fontes e gera `SKILL.md`, `knowledge/` e metadata.
 
 ## Legacy
-
-A antiga prova de conceito da extensão Chrome continua preservada em `/extension`, mas o produto principal agora é o web app.
+A antiga extensão Chrome está preservada em `/extension`. O antigo experimento Next.js fica no histórico Git e não é mais a arquitetura principal.
