@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SkillForge Docs</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <p class="eyebrow">DOCS → KNOWLEDGE → SKILL</p>
+        <h1>SkillForge Docs</h1>
+      </div>
+      <span class="badge">V0.2</span>
+    </header>
+
+    <section class="card">
+      <label for="startUrl">URL inicial</label>
+      <input id="startUrl" type="url" placeholder="https://docs.oracle.com/..." />
+
+      <div class="grid2">
+        <div>
+          <label for="maxPages">Máx. páginas (0 = ilimitado)</label>
+          <input id="maxPages" type="number" min="0" value="30" />
+        </div>
+        <div>
+          <label for="depth">Profundidade (0 = ilimitada)</label>
+          <input id="depth" type="number" min="0" value="2" />
+        </div>
+      </div>
+
+      <label for="scope">Escopo</label>
+      <select id="scope">
+        <option value="path">Mesmo caminho-base</option>
+        <option value="host">Mesmo domínio</option>
+      </select>
+
+      <label for="skillName">Nome da Skill</label>
+      <input id="skillName" type="text" placeholder="oracle-cloud-infrastructure" />
+
+      <div class="checks">
+        <label><input id="includeCode" type="checkbox" checked /> Capturar blocos de código</label>
+        <label><input id="includeTables" type="checkbox" checked /> Capturar tabelas</label>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="useCurrent" class="secondary">Usar página atual</button>
+      <button id="start" class="primary">Capturar e gerar Skill</button>
+    </section>
+
+    <section class="progress-wrap hidden" id="progressWrap">
+      <div class="progress-head">
+        <span id="statusText">Preparando…</span>
+        <span id="counter">0/0</span>
+      </div>
+      <div class="progress"><div id="bar"></div></div>
+      <pre id="log"></pre>
+    </section>
+
+    <section class="result hidden" id="result">
+      <strong>Skill gerada.</strong>
+      <span id="resultMeta"></span>
+      <button id="download" class="primary">Baixar ZIP</button>
+    </section>
+
+    <p class="foot">Use apenas conteúdo que você tem autorização para acessar e reutilizar.</p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
