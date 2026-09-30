@@ -1,51 +1,54 @@
 # SkillForge Docs
 
-Transforma fontes públicas de conhecimento em Skills estruturadas para agentes de IA.
+Cloudflare-native app para transformar documentação e outras fontes públicas de conhecimento em Skills estruturadas para agentes de IA.
 
-## Stack principal
-- Python 3.12
-- FastAPI
-- SQLite
-- autenticação por sessão própria
-- httpx + BeautifulSoup + Trafilatura
-- Playwright como fallback para páginas JavaScript
-- zipfile para compilar Skills
-- Docker para deploy
+## Arquitetura atual
 
-Não usa Supabase.
+- Cloudflare Workers em Python
+- Cloudflare Workflows para crawls assíncronos
+- D1 para usuários, sessões e projetos
+- R2 para ZIPs gerados
+- Static Assets para landing/dashboard
+- GitHub como fonte do código
 
 ## Fluxo
-Landing → Auth → Dashboard → Nova Skill → Crawler Python → Markdown estruturado → Skill ZIP
 
-## Rodar localmente
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-playwright install chromium
-uvicorn app.main:app --reload
+Landing → Auth → Dashboard → Nova Skill → Python Workflow → Crawl → Skill ZIP → R2
+
+## Primeira publicação no Windows
+
+No PowerShell, dentro do repositório:
+
+```powershell
+git pull
+powershell -ExecutionPolicy Bypass -File scripts/publish.ps1
 ```
 
-Linux/macOS:
-```bash
-source .venv/bin/activate
-```
+O script:
+1. autentica sua conta Cloudflare;
+2. cria o D1;
+3. grava o database_id no wrangler.toml;
+4. cria o bucket R2;
+5. aplica schema.sql;
+6. publica o Worker.
 
-Abra: http://127.0.0.1:8000
+Depois do primeiro deploy, faça commit do `database_id` preenchido no `wrangler.toml`.
 
-## Configuração
-Copie `.env.example` e configure uma `SECRET_KEY` forte no ambiente.
+## Atualizações automáticas
 
-## Deploy
-O projeto está pronto para container Docker. Railway, Render, Fly.io ou VPS são opções naturais para manter jobs de crawler executando fora do ciclo curto de funções serverless.
+Adicione estes Secrets no GitHub:
 
-## Crawler
-- tenta sitemap primeiro;
-- segue links do mesmo escopo;
-- extrai HTML via httpx;
-- usa Playwright se a página vier pobre por JavaScript;
-- `max_pages = 0` significa sem limite explícito;
-- registra fontes e gera `SKILL.md`, `knowledge/` e metadata.
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+O workflow `.github/workflows/cloudflare.yml` publica alterações do `main`.
+
+## Estado do crawler
+
+A versão 0.5 usa Cloudflare Python Workflows e captura HTML do mesmo domínio, compila `SKILL.md`, knowledge pages, sources e metadata em ZIP e salva no R2.
+
+O limite inicial por job é 250 páginas. Browser Run para portais JS-heavy e particionamento de crawls gigantes entram na próxima etapa.
 
 ## Legacy
-A antiga extensão Chrome está preservada em `/extension`. O antigo experimento Next.js fica no histórico Git e não é mais a arquitetura principal.
+
+A prova antiga da extensão Chrome continua em `/extension` apenas como histórico.
