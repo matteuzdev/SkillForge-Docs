@@ -1,40 +1,72 @@
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
-Write-Host "SkillForge Docs - publicação Cloudflare" -ForegroundColor Cyan
+Write-Host "SkillForge Docs - Cloudflare publish" -ForegroundColor Cyan
 
 if (-not (Get-Command npx -ErrorAction SilentlyContinue)) {
-  throw "Node.js/npx não encontrado. Instale Node.js primeiro."
+  throw "Node.js/npx not found. Install Node.js first."
 }
 
-Write-Host "1/5 Autenticando no Cloudflare..."
-npx wrangler@latest whoami
+Write-Host "1/5 Cloudflare login..."
+cmd /c "npx wrangler@latest whoami >nul 2>&1"
 if ($LASTEXITCODE -ne 0) {
-  npx wrangler@latest login
+  Write-Host "Opening Cloudflare login in your browser..." -ForegroundColor Yellow
+  cmd /c "npx wrangler@latest login"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Cloudflare login failed. Run: npx wrangler@latest login"
+  }
 }
 
-Write-Host "2/5 Criando D1..."
-$d1 = npx wrangler@latest d1 create skillforge-docs 2>&1 | Out-String
+cmd /c "npx wrangler@latest whoami"
+if ($LASTEXITCODE -ne 0) {
+  throw "Cloudflare is still not authenticated."
+}
+
+Write-Host "2/5 Creating D1..."
+$d1 = cmd /c "npx wrangler@latest d1 create skillforge-docs" 2>&1 | Out-String
 Write-Host $d1
+
 $match = [regex]::Match($d1, 'database_id\s*=\s*"([^"]+)"')
 if (-not $match.Success) {
   $match = [regex]::Match($d1, '([0-9a-fA-F]{8}-[0-9a-fA-F-]{27,})')
 }
+
 if (-not $match.Success) {
-  throw "Não consegui identificar o database_id. Se o banco já existir, rode: npx wrangler d1 list"
+  Write-Host "D1 may already exist. Looking it up..." -ForegroundColor Yellow
+  $list = cmd /c "npx wrangler@latest d1 list --json" 2>&1 | Out-String
+  try {
+    $rows = $list | ConvertFrom-Json
+    $db = $rows | Where-Object { $_.name -eq "skillforge-docs" } | Select-Object -First 1
+    if ($db) { $dbid = $db.uuid }
+  } catch {}
+} else {
+  $dbid = $match.Groups[1].Value
 }
-$dbid = $match.Groups[1].Value
 
-(Get-Content wrangler.toml -Raw).Replace("REPLACE_WITH_D1_DATABASE_ID", $dbid) | Set-Content wrangler.toml
+if (-not $dbid) {
+  throw "Could not determine the D1 database id. Run: npx wrangler@latest d1 list"
+}
 
-Write-Host "3/5 Criando bucket R2..."
-npx wrangler@latest r2 bucket create skillforge-skills
-if ($LASTEXITCODE -ne 0) { Write-Host "Bucket pode já existir; continuando." -ForegroundColor Yellow }
+$wrangler = Get-Content wrangler.toml -Raw
+$wrangler = [regex]::Replace($wrangler, 'database_id\s*=\s*"[^"]+"', ('database_id = "' + $dbid + '"'))
+Set-Content -Path wrangler.toml -Value $wrangler -Encoding utf8
 
-Write-Host "4/5 Aplicando schema D1..."
-npx wrangler@latest d1 execute skillforge-docs --remote --file=schema.sql
+Write-Host "3/5 Creating R2 bucket..."
+cmd /c "npx wrangler@latest r2 bucket create skillforge-skills"
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "R2 bucket may already exist; continuing." -ForegroundColor Yellow
+}
 
-Write-Host "5/5 Publicando Worker Python..."
-npx wrangler@latest deploy
+Write-Host "4/5 Applying D1 schema..."
+cmd /c "npx wrangler@latest d1 execute skillforge-docs --remote --file=schema.sql"
+if ($LASTEXITCODE -ne 0) {
+  throw "Failed applying D1 schema."
+}
+
+Write-Host "5/5 Deploying Python Worker..."
+cmd /c "npx wrangler@latest deploy"
+if ($LASTEXITCODE -ne 0) {
+  throw "Cloudflare deploy failed."
+}
 
 Write-Host ""
-Write-Host "Publicado. Copie a URL workers.dev exibida acima." -ForegroundColor Green
+Write-Host "Published successfully. Use the workers.dev URL shown above." -ForegroundColor Green
