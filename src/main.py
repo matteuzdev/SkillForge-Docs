@@ -1,6 +1,6 @@
 from workers import WorkerEntrypoint, WorkflowEntrypoint, Response, fetch
 from urllib.parse import urlparse, urljoin, urldefrag
-import json, hashlib, hmac, secrets, time, re, io, zipfile
+import json, hashlib, hmac, secrets, time, re, io, zipfile, asyncio
 
 SESSION_SECONDS = 60 * 60 * 24 * 30
 
@@ -133,51 +133,116 @@ class CrawlWorkflow(WorkflowEntrypoint):
         project_id = int(payload["project_id"])
         start_url = payload["start_url"]
         name = payload["name"]
-        max_pages = max(1, min(int(payload.get("max_pages", 50)), 250))
+        max_pages = max(1, min(int(payload.get("max_pages", 500)), 5000))
 
         @step.do("crawl-and-compile", config={"retries":{"limit":2,"delay":"10 seconds"}})
         async def crawl_and_compile():
+            started = int(time.time())
             await self.env.DB.prepare("UPDATE projects SET status='running', error=NULL WHERE id=?").bind(project_id).run()
+            await self.env.DB.prepare(
+                "INSERT OR REPLACE INTO project_runs(project_id,phase,current_url,discovered,visited,useful,skipped,failed,queue_size,started_at,updated_at,cancel_requested) VALUES (?, 'discovering', ?, 1,0,0,0,0,1,?,?,0)"
+            ).bind(project_id, start_url, started, started).run()
+
             queue = [start_url]
+            queued = {start_url}
             seen = set()
             pages = []
+            visited = skipped = failed = 0
+            concurrency = 6
+
+            async def fetch_one(url):
+                try:
+                    r = await fetch(url, {"headers":{"user-agent":"SkillForgeDocs/0.6"}})
+                    if not r.ok:
+                        return {"url":url,"error":True}
+                    ctype = (r.headers.get("content-type") or "").lower()
+                    if "html" not in ctype:
+                        return {"url":url,"skip":True}
+                    html = await r.text()
+                    title, text, links = html_to_text_and_links(html, url)
+                    words = len(text.split())
+                    return {"url":url,"title":title,"text":text,"links":links,"words":words}
+                except Exception:
+                    return {"url":url,"error":True}
+
             try:
                 while queue and len(pages) < max_pages:
-                    url = queue.pop(0)
-                    if url in seen or not same_host(url, start_url):
+                    run = await self.env.DB.prepare("SELECT cancel_requested FROM project_runs WHERE project_id=?").bind(project_id).first()
+                    if run and run.cancel_requested:
+                        await self.env.DB.prepare("UPDATE projects SET status='cancelled' WHERE id=?").bind(project_id).run()
+                        await self.env.DB.prepare("UPDATE project_runs SET phase='cancelled', updated_at=? WHERE project_id=?").bind(int(time.time()), project_id).run()
+                        return {"cancelled":True}
+
+                    batch = []
+                    while queue and len(batch) < concurrency and len(pages) + len(batch) < max_pages:
+                        u = queue.pop(0)
+                        queued.discard(u)
+                        if u in seen or not same_host(u, start_url):
+                            continue
+                        seen.add(u)
+                        batch.append(u)
+                    if not batch:
                         continue
-                    seen.add(url)
-                    try:
-                        r = await fetch(url, {"headers":{"user-agent":"SkillForgeDocs/0.5"}})
-                        if not r.ok:
+
+                    await self.env.DB.prepare(
+                        "UPDATE project_runs SET phase='extracting', current_url=?, queue_size=?, updated_at=? WHERE project_id=?"
+                    ).bind(batch[0], len(queue), int(time.time()), project_id).run()
+
+                    results = await asyncio.gather(*[fetch_one(u) for u in batch])
+                    for item in results:
+                        visited += 1
+                        if item.get("error"):
+                            failed += 1
                             continue
-                        ctype = r.headers.get("content-type") or ""
-                        if "html" not in ctype.lower():
-                            continue
-                        html = await r.text()
-                        title, text, links = html_to_text_and_links(html, url)
-                        words = len(text.split())
-                        if words >= 40:
-                            pages.append({"url":url,"title":title,"text":text,"words":words,"kind":classify(title,text,url)})
-                            await self.env.DB.prepare("UPDATE projects SET pages=?, words=? WHERE id=?").bind(
-                                len(pages), sum(x["words"] for x in pages), project_id
-                            ).run()
-                        for link in links:
-                            if link not in seen and same_host(link, start_url):
+                        if item.get("skip") or item.get("words",0) < 40:
+                            skipped += 1
+                        else:
+                            pages.append({
+                                "url":item["url"],"title":item["title"],"text":item["text"],
+                                "words":item["words"],"kind":classify(item["title"],item["text"],item["url"])
+                            })
+                        for link in item.get("links",[]):
+                            if link not in seen and link not in queued and same_host(link, start_url):
                                 queue.append(link)
-                    except Exception:
-                        continue
+                                queued.add(link)
+
+                    words_total = sum(x["words"] for x in pages)
+                    await self.env.DB.prepare("UPDATE projects SET pages=?, words=? WHERE id=?").bind(
+                        len(pages), words_total, project_id
+                    ).run()
+                    await self.env.DB.prepare(
+                        "UPDATE project_runs SET discovered=?, visited=?, useful=?, skipped=?, failed=?, queue_size=?, current_url=?, updated_at=? WHERE project_id=?"
+                    ).bind(
+                        len(seen)+len(queue), visited, len(pages), skipped, failed, len(queue),
+                        batch[-1], int(time.time()), project_id
+                    ).run()
+
                 if not pages:
                     raise Exception("Nenhuma página útil foi extraída.")
+
+                await self.env.DB.prepare(
+                    "UPDATE project_runs SET phase='compiling', current_url=NULL, updated_at=? WHERE project_id=?"
+                ).bind(int(time.time()), project_id).run()
                 blob = compile_zip(name, start_url, pages)
                 key = f"projects/{project_id}/{slug(name)}.zip"
+
+                await self.env.DB.prepare(
+                    "UPDATE project_runs SET phase='uploading', updated_at=? WHERE project_id=?"
+                ).bind(int(time.time()), project_id).run()
                 await self.env.SKILLS.put(key, blob)
+
                 await self.env.DB.prepare(
                     "UPDATE projects SET status='done', pages=?, words=?, object_key=?, error=NULL WHERE id=?"
                 ).bind(len(pages), sum(x["words"] for x in pages), key, project_id).run()
+                await self.env.DB.prepare(
+                    "UPDATE project_runs SET phase='done', queue_size=0, current_url=NULL, updated_at=? WHERE project_id=?"
+                ).bind(int(time.time()), project_id).run()
                 return {"pages":len(pages),"key":key}
             except Exception as exc:
                 await self.env.DB.prepare("UPDATE projects SET status='error', error=? WHERE id=?").bind(str(exc), project_id).run()
+                await self.env.DB.prepare(
+                    "UPDATE project_runs SET phase='error', updated_at=? WHERE project_id=?"
+                ).bind(int(time.time()), project_id).run()
                 raise
         return await crawl_and_compile()
 
@@ -255,13 +320,17 @@ class Default(WorkerEntrypoint):
             data = await body_json(request)
             name = str(data.get("name","")).strip()
             start_url = str(data.get("start_url","")).strip()
-            max_pages = max(1, min(int(data.get("max_pages",50) or 50), 250))
+            max_pages = max(1, min(int(data.get("max_pages",500) or 500), 5000))
             parsed = urlparse(start_url)
             if not name or parsed.scheme not in ("http","https") or not parsed.netloc:
                 return json_response({"error":"Nome e URL válidos são obrigatórios."}, 400)
             row = await self.env.DB.prepare(
                 "INSERT INTO projects(user_id,name,start_url,max_pages,status) VALUES (?,?,?,?,'queued') RETURNING id,name,start_url,status,pages,words,max_pages"
             ).bind(user.id,name,start_url,max_pages).first()
+            now = int(time.time())
+            await self.env.DB.prepare(
+                "INSERT OR REPLACE INTO project_runs(project_id,phase,current_url,discovered,queue_size,started_at,updated_at) VALUES (?, 'queued', ?, 1, 1, ?, ?)"
+            ).bind(row.id, start_url, now, now).run()
             await self.env.CRAWL_WORKFLOW.create(params={"project_id":row.id,"name":name,"start_url":start_url,"max_pages":max_pages})
             return json_response({"project":{"id":row.id,"name":row.name,"start_url":row.start_url,"status":row.status,"pages":row.pages,"words":row.words}}, 201)
 
@@ -274,6 +343,12 @@ class Default(WorkerEntrypoint):
             project = await self.env.DB.prepare("SELECT * FROM projects WHERE id=? AND user_id=?").bind(project_id,user.id).first()
             if not project:
                 return json_response({"error":"Projeto não encontrado."}, 404)
+            if len(parts) == 4 and parts[3] == "cancel" and request.method == "POST":
+                if project.status in ("queued","running"):
+                    await self.env.DB.prepare("UPDATE project_runs SET cancel_requested=1, updated_at=? WHERE project_id=?").bind(int(time.time()), project_id).run()
+                    return json_response({"ok":True,"message":"Cancelamento solicitado."})
+                return json_response({"ok":False,"message":"Projeto não está em execução."}, 409)
+
             if len(parts) == 4 and parts[3] == "download":
                 if project.status != "done" or not project.object_key:
                     return json_response({"error":"Skill ainda não está pronta."}, 409)
@@ -284,9 +359,23 @@ class Default(WorkerEntrypoint):
                     "content-type":"application/zip",
                     "content-disposition":f'attachment; filename="{slug(project.name)}.zip"'
                 })
+            run = await self.env.DB.prepare("SELECT * FROM project_runs WHERE project_id=?").bind(project_id).first()
+            now = int(time.time())
+            progress = None
+            if run:
+                elapsed = max(0, now - (run.started_at or now))
+                rate = (run.useful * 60 / elapsed) if elapsed > 0 else 0
+                remaining = max(0, project.max_pages - run.useful)
+                eta = int((remaining / rate) * 60) if rate > 0 and project.status in ("queued","running") else None
+                progress = {
+                    "phase":run.phase,"current_url":run.current_url,"discovered":run.discovered,
+                    "visited":run.visited,"useful":run.useful,"skipped":run.skipped,"failed":run.failed,
+                    "queue_size":run.queue_size,"elapsed_seconds":elapsed,"pages_per_minute":round(rate,1),
+                    "eta_seconds":eta,"max_pages":project.max_pages
+                }
             return json_response({"project":{
                 "id":project.id,"name":project.name,"start_url":project.start_url,"status":project.status,
-                "pages":project.pages,"words":project.words,"error":project.error
+                "pages":project.pages,"words":project.words,"error":project.error,"progress":progress
             }})
 
         return json_response({"error":"not found"}, 404)
