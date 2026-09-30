@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "SkillForge Docs",
+  "version": "0.2.0",
+  "description": "Transforma documentação técnica em uma base estruturada e exporta uma Skill em ZIP.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "scripting",
+    "downloads",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_title": "SkillForge Docs",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}
